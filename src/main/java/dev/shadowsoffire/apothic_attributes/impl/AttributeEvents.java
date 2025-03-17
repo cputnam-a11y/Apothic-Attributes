@@ -9,6 +9,9 @@ import dev.shadowsoffire.apothic_attributes.api.ALObjects.Attachments;
 import dev.shadowsoffire.apothic_attributes.api.AttributeHelper;
 import dev.shadowsoffire.apothic_attributes.commands.BonusModifierCommand;
 import dev.shadowsoffire.apothic_attributes.event.ApotheosisCommandEvent;
+import dev.shadowsoffire.apothic_attributes.modifiers.EquipmentSlotCompat;
+import dev.shadowsoffire.apothic_attributes.modifiers.StackAttributeModifiers;
+import dev.shadowsoffire.apothic_attributes.modifiers.StackAttributeModifiersEvent;
 import dev.shadowsoffire.apothic_attributes.payload.ConfigPayload;
 import dev.shadowsoffire.apothic_attributes.payload.CritParticlePayload;
 import dev.shadowsoffire.apothic_attributes.util.AttributesUtil;
@@ -350,6 +353,7 @@ public class AttributeEvents {
         }
     }
 
+    @SuppressWarnings("removal")
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void bonusModifiers(ItemAttributeModifierEvent e) {
         ItemStack stack = e.getItemStack();
@@ -357,6 +361,34 @@ public class AttributeEvents {
         if (bonus != null) {
             bonus.modifiers().forEach(entry -> {
                 e.addModifier(entry.attribute(), entry.modifier(), entry.slot());
+            });
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public void stackAttrModifierCompat(ItemAttributeModifierEvent e) {
+        var event = new StackAttributeModifiersEvent(e.getItemStack(), StackAttributeModifiers.fromVanilla(e.build()));
+        NeoForge.EVENT_BUS.post(event);
+
+        if (event.hasChanges()) {
+            e.clearModifiers();
+            StackAttributeModifiers newModifs = event.build();
+            for (StackAttributeModifiers.Entry entry : newModifs.modifiers()) {
+                EquipmentSlotGroup vanilla = EquipmentSlotCompat.toVanilla(entry.slots());
+                if (vanilla != null) {
+                    e.addModifier(entry.attribute(), entry.modifier(), vanilla);
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public void bonusStackModifiers(StackAttributeModifiersEvent e) {
+        ItemStack stack = e.getItemStack();
+        StackAttributeModifiers bonus = stack.get(ALObjects.Components.BONUS_STACK_ATTRIBUTE_MODIFIERS);
+        if (bonus != null) {
+            bonus.modifiers().forEach(entry -> {
+                e.addModifier(entry.attribute(), entry.modifier(), entry.slots());
             });
         }
     }
